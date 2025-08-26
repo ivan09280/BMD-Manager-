@@ -4,11 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>视频播放｜BV11JefzVEHi</title>
-  <meta name="robots" content="noindex">
   <meta name="color-scheme" content="light dark">
   <link rel="preconnect" href="https://player.bilibili.com" crossorigin>
   <style>
-    :root { --bg:#0b0b0b; --fg:#f6f6f6; --muted:#a2a2a2; --card:#101010; --line:#1f1f1f; }
+    :root { --bg:#0b0b0b; --fg:#f6f6f6; --card:#101010; --line:#1f1f1f; }
     * { box-sizing:border-box; }
     html, body { height:100%; }
     body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--fg); }
@@ -22,14 +21,12 @@
     .player { position:relative; width:100%; background:#000; }
     .player::before { content:""; display:block; padding-top:56.25%; } /* 16:9 */
     iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
-    .overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:16px; }
-    .hintbox { display:none; flex-direction:column; gap:12px; align-items:center; justify-content:center; background:rgba(0,0,0,.55); padding:20px; border-radius:12px; text-align:center; }
-    .hintbox p { margin:0; font-size:14px; color:#fff; }
-    .spinner { width:28px; height:28px; border:3px solid rgba(255,255,255,.25); border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; }
+    /* 覆蓋層 */
+    #overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:16px; }
+    #overlay .loading { display:flex; gap:12px; align-items:center; color:#fff; }
+    #overlay .spinner { width:28px; height:28px; border:3px solid rgba(255,255,255,.25); border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; }
+    #fallback { display:none; flex-direction:column; gap:12px; align-items:center; justify-content:center; background:rgba(0,0,0,.55); padding:20px; border-radius:12px; text-align:center; }
     @keyframes spin { to { transform:rotate(360deg); } }
-    .loading { display:flex; gap:12px; align-items:center; }
-    .footer { padding:10px 14px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; display:flex; justify-content:flex-end; }
-    @media (max-width:480px) { .title { font-size:15px; } .btn { font-size:13px; padding:7px 10px; } }
   </style>
 </head>
 <body>
@@ -38,55 +35,45 @@
       <div class="head">
         <h1 class="title">视频播放</h1>
         <div class="btns">
-          <a class="btn" id="openBili" href="https://www.bilibili.com/video/BV11JefzVEHi/" target="_blank" rel="noopener">在哔哩哔哩打开</a>
-          <button class="btn" id="copyLink" type="button">复制链接</button>
+          <a class="btn" href="https://www.bilibili.com/video/BV11JefzVEHi/" target="_blank" rel="noopener">在哔哩哔哩打开</a>
         </div>
       </div>
       <div class="player">
         <iframe id="bplayer"
           src="https://player.bilibili.com/player.html?isOutside=true&bvid=BV11JefzVEHi&cid=31939954371&p=1&autoplay=0"
+          allow="autoplay; fullscreen; picture-in-picture"
           allowfullscreen
-          loading="eager"
           scrolling="no"
           referrerpolicy="strict-origin-when-cross-origin"
-          title="Bilibili 播放器">
-        </iframe>
-        <div class="overlay" aria-live="polite" aria-atomic="true">
-          <div id="status" class="loading">
+          title="Bilibili 播放器"></iframe>
+
+        <!-- 覆蓋層（載入中 / 失敗） -->
+        <div id="overlay" aria-live="polite" aria-atomic="true">
+          <div id="loading" class="loading">
             <div class="spinner" aria-hidden="true"></div>
             <span>正在载入播放器…</span>
           </div>
-          <div id="fallback" class="hintbox">
+          <div id="fallback">
             <p>如果播放器无法显示，请点击下方按钮直接在哔哩哔哩打开。</p>
             <a class="btn" href="https://www.bilibili.com/video/BV11JefzVEHi/" target="_blank" rel="noopener">在哔哩哔哩打开</a>
           </div>
         </div>
       </div>
-      <div class="footer">
-        <span id="note">如遇企业内网/微信内置浏览器限制，建议点击“在哔哩哔哩打开”。</span>
-      </div>
     </div>
   </div>
 
   <script>
-    // 简单的加载状态切换：iframe onload 成功 → 隐藏 overlay；5 秒无响应 → 显示 fallback
     const iframe = document.getElementById('bplayer');
-    const statusBox = document.getElementById('status');
+    const overlay = document.getElementById('overlay');
+    const loading = document.getElementById('loading');
     const fallback = document.getElementById('fallback');
-    const copyBtn = document.getElementById('copyLink');
-    const biliURL = "https://www.bilibili.com/video/BV11JefzVEHi/";
 
     let done = false;
-    function showLoaded() {{ if (done) return; done = true; statusBox.style.display = 'none'; }}
-    function showFallback() {{ if (done) return; statusBox.style.display = 'none'; fallback.style.display = 'flex'; }}
+    function hideOverlay() { overlay.style.display = 'none'; }          // ✅ 載入成功：整個覆蓋層關掉
+    function showFallback() { if (!done) { loading.style.display='none'; fallback.style.display='flex'; } }
 
-    iframe.addEventListener('load', showLoaded);
+    iframe.addEventListener('load', () => { done = true; hideOverlay(); });
     setTimeout(showFallback, 5000);
-
-    copyBtn.addEventListener('click', async () => {{ 
-      try {{ await navigator.clipboard.writeText(biliURL); copyBtn.textContent = '已复制'; setTimeout(()=>copyBtn.textContent='复制链接', 1600); }}
-      catch (e) {{ window.prompt('复制失败，请手动复制：', biliURL); }}
-    }});
   </script>
 </body>
 </html>
